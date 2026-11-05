@@ -340,24 +340,14 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     title = document.createElement("div");
     title.style.cssText = "width:100%;font-weight:750;font-size:15px;color:white;" +
       "background:#162334;border-radius:7px;padding:9px;box-sizing:border-box;";
-    var prev = button("◀ Previous", function () { move(-1); });
-    var next = button("Next ▶", function () { move(1); });
     counter = document.createElement("span");
     counter.style.cssText = "color:white;font-size:12px;min-width:55px;text-align:center;";
     details = document.createElement("div");
     details.style.cssText = "display:none;flex:1 1 100%;padding:8px 10px;color:#ffc4c4;" +
       "border:1px solid #a34a4a;border-radius:6px;font-size:12px;overflow-wrap:anywhere;";
-    var nav = document.createElement("div");
-    nav.style.cssText = "display:flex;gap:6px;align-items:center;flex:1 1 100%;";
-    prev.style.flex = "1";
-    next.style.flex = "1";
-    nav.appendChild(prev);
-    nav.appendChild(counter);
-    nav.appendChild(next);
     bar.appendChild(modeAnimeBtn);
     bar.appendChild(modeIPTVBtn);
     bar.appendChild(title);
-    bar.appendChild(nav);
     bar.appendChild(details);
     tvVideo = document.createElement("video");
     tvVideo.id = "wifi5-duo-iptv-video";
