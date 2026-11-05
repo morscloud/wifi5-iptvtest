@@ -152,9 +152,11 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     return null;
   }
   function activeName() {
-    return mode === "anime"
-      ? "ANIME TV — EP " + String((Number(animeVideo && animeVideo.__wifi5AnimeIndex) || 0) + 1).padStart(2, "0")
-      : channels[channelIndex].name;
+    if (mode === "anime") {
+      var episode = (Number(animeVideo && animeVideo.__wifi5AnimeIndex) || 0) + 1;
+      return "Dragon Ball Z - Season 1 - EP " + episode + (episode === 35 ? " Finale" : "");
+    }
+    return channels[channelIndex].name;
   }
   function findLegacyTitle() {
     if (legacyTitle && legacyTitle.isConnected) return legacyTitle;
@@ -194,7 +196,7 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     modeIPTVBtn.style.background = mode === "iptv" ? "#087d69" : "#252f41";
     modeAnimeBtn.setAttribute("aria-pressed", String(mode === "anime"));
     modeIPTVBtn.setAttribute("aria-pressed", String(mode === "iptv"));
-    title.textContent = mode === "anime" ? "LOCAL ANIME TV — " + activeName() : "LIVE IPTV — " + activeName();
+    title.textContent = mode === "anime" ? activeName() : "LIVE IPTV — " + activeName();
     counter.textContent = mode === "anime"
       ? "EP " + ((Number(animeVideo && animeVideo.__wifi5AnimeIndex) || 0) + 1) + "/" + animeCount
       : "CH " + (channelIndex + 1) + "/" + channels.length;
