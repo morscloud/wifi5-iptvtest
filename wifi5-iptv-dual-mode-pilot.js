@@ -97,16 +97,17 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
 
 
 
-/* AllanPisoWiFi Dual-Mode v2 — focused IPTV + local Anime TV, title and navigation fix.
+/* AllanPisoWiFi Dual-Mode v3 — 4 confirmed PH + 6 alternate trial channels.
    Pilot only; restores independently from GitHub backup.
 */
 (function () {
   "use strict";
-  var channels = [{"name":"Abante TV","url":"https://amg19223-amg19223c12-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c12-amgplt0352/playlist.m3u8"},{"name":"Bilyonaryo News","url":"https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8"},{"name":"Hope Channel Philippines","url":"https://jstre.am/live/jsl:nX5eC7gQvZb.m3u8"},{"name":"INC TV","url":"https://stream-243529.castr.net/6842a712b68c56f675d988f1/live_f5ac22b0566511f0805217b960326aaa/rewind-1800.m3u8"},{"name":"PBS Kids","url":"https://livestream.pbskids.org/out/v1/14507d931bbe48a69287e4850e53443c/est.m3u8"},{"name":"ABC Kids","url":"https://c.mjh.nz/abc-kids.m3u8"},{"name":"ABC Me","url":"https://c.mjh.nz/abc-me.m3u8"},{"name":"MBC 3","url":"https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-3-usa/5d58265a862a476dc7f97694addb5ded/index.m3u8"},{"name":"NBC News NOW","url":"https://d1si3n1st4nkgb.cloudfront.net/10502/88896001/hls/master.m3u8?ads.xumo_channelId=88896001"},{"name":"CBS News","url":"https://dai.google.com/linear/hls/event/Sid4xiTQTkCT1SLu6rjUSQ/master.m3u8"}];
+  var channels = [{"name":"Abante TV","url":"https://amg19223-amg19223c12-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c12-amgplt0352/playlist.m3u8"},{"name":"Bilyonaryo News","url":"https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8"},{"name":"Hope Channel Philippines","url":"https://jstre.am/live/jsl:nX5eC7gQvZb.m3u8"},{"name":"INC TV","url":"https://stream-243529.castr.net/6842a712b68c56f675d988f1/live_f5ac22b0566511f0805217b960326aaa/rewind-1800.m3u8"},{"name":"Kartoon Channel!","url":"https://hlspackager.akamaized.net/live/DB/KARTOON_CHANNEL/HLS/KARTOON_CHANNEL.m3u8","alternates":["https://jmp2.uk/plu-60fb040d4795a6000762fe8f.m3u8"]},{"name":"HappyKids","url":"https://mumbai-edge.smartplaytv.in/HappyKids/index.m3u8"},{"name":"LEGO Kids TV","url":"https://jmp2.uk/plu-60fb01a24795a6000762fe83.m3u8"},{"name":"Garfield and Friends","url":"https://jmp2.uk/plu-60faf9ddfcc1f200070a5932.m3u8"},{"name":"ABC News Live","url":"https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master.m3u8","alternates":["https://aegis-cloudfront-1.tubi.video/d6cbb0de-68e4-4f3b-82f9-bf5d526e0bde/index.m3u8"]},{"name":"CBS News 24/7","url":"https://cbsn-us.cbsnstream.cbsnews.com/out/v1/55a8648e8f134e82a470f83d562deeca/master.m3u8","alternates":["https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"]}];
   var mode = "anime", channelIndex = 0, activeHls = null, animeVideo = null;
   var tvVideo = null, scope = null, bar = null, modeAnimeBtn = null, modeIPTVBtn = null;
   var title = null, details = null, counter = null, channelSelect = null, legacyTitle = null;
   var loaded = false, mediaClearing = false, lastHlsError = "", requestGeneration = 0;
+  var sourceIndex = 0, failureTimer = null, alternateError = null;
   var animeCount = iptvlist.length, previousAnimeDisplay = "";
 
   function safePlay(video) {
@@ -174,6 +175,8 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
   }
   function destroyIPTV() {
     requestGeneration++;
+    if (failureTimer) { clearTimeout(failureTimer); failureTimer = null; }
+    alternateError = null;
     mediaClearing = true;
     if (activeHls) {
       try { activeHls.destroy(); } catch (error) {}
@@ -191,7 +194,7 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     var reason = err.reason ? " | " + String(err.reason).slice(0, 85) : "";
     return String(err.type || "error") + " / " + String(err.details || "unknown") + response + reason;
   }
-  function playChannel(index) {
+  function playChannel(index, preferredSource) {
     if (!tvVideo || mode !== "iptv") return;
     channelIndex = (index + channels.length) % channels.length;
     destroyIPTV();
@@ -200,22 +203,41 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     render();
     var channel = channels[channelIndex];
     var gen = requestGeneration;
+    var allSources = [channel.url].concat(channel.alternates || []);
+    sourceIndex = typeof preferredSource === "number" && preferredSource >= 0 &&
+      preferredSource < allSources.length ? preferredSource : 0;
+    var sourceURL = allSources[sourceIndex];
+    var attempted = false;
+    alternateError = function (reason) {
+      if (attempted || gen !== requestGeneration || mode !== "iptv") return;
+      attempted = true;
+      if (sourceIndex + 1 < allSources.length) {
+        playChannel(channelIndex, sourceIndex + 1);
+      } else {
+        showError(channel.name + " cannot play in this portal (" + reason +
+          "). Other sources may have CORS or region restrictions.");
+      }
+    };
+    failureTimer = setTimeout(function () {
+      if (gen === requestGeneration && mode === "iptv" && alternateError)
+        alternateError("No video started after 18 seconds");
+    }, 18000);
     tvVideo.muted = true;
     tvVideo.setAttribute("muted", "");
 
     // Native HLS in Safari/iOS, Hls.js where MediaSource is supported.
     if (tvVideo.canPlayType("application/vnd.apple.mpegurl") ||
         tvVideo.canPlayType("application/x-mpegURL")) {
-      tvVideo.src = channel.url;
+      tvVideo.src = sourceURL;
       tvVideo.load();
       safePlay(tvVideo);
     } else if (typeof Hls !== "undefined" && Hls.isMSESupported && Hls.isMSESupported()) {
       var hls = new Hls({enableWorker:true});
       activeHls = hls;
       // The Anime MP4 compatibility shim delegates these HLS URLs to genuine Hls.js.
-      hls.__wifi5AnimeURL = channel.url;
+      hls.__wifi5AnimeURL = sourceURL;
       hls.on(Hls.Events.MEDIA_ATTACHED, function () {
-        if (gen === requestGeneration && mode === "iptv") hls.loadSource(channel.url);
+        if (gen === requestGeneration && mode === "iptv") hls.loadSource(sourceURL);
       });
       hls.on(Hls.Events.MANIFEST_PARSED, function () {
         if (gen === requestGeneration && mode === "iptv") safePlay(tvVideo);
@@ -223,12 +245,11 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
       hls.on(Hls.Events.ERROR, function (eventName, err) {
         if (gen !== requestGeneration || mode !== "iptv" || !err || !err.fatal) return;
         lastHlsError = errorDescription(err);
-        showError("IPTV " + channel.name + ": " + lastHlsError +
-          " — VLC playback does not guarantee browser support.");
+        if (alternateError) alternateError(lastHlsError);
       });
       hls.attachMedia(tvVideo);
     } else {
-      showError("No native HLS or MediaSource support in this browser.");
+      if (alternateError) alternateError("No native HLS or MediaSource support in this browser");
     }
   }
   function selectMode(nextMode) {
@@ -364,11 +385,17 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     tvVideo.addEventListener("canplay", function () {
       if (mode === "iptv") safePlay(tvVideo);
     });
+    tvVideo.addEventListener("playing", function () {
+      if (mode === "iptv" && failureTimer) {
+        clearTimeout(failureTimer);
+        failureTimer = null;
+        showError("");
+      }
+    });
     tvVideo.addEventListener("error", function () {
       if (mode !== "iptv" || mediaClearing || lastHlsError || !tvVideo.getAttribute("src")) return;
       var code = tvVideo.error ? tvVideo.error.code : "unknown";
-      showError("Browser media error " + code + " on " + channels[channelIndex].name +
-        ". Try another IPTV channel.");
+      if (alternateError) alternateError("Browser media error " + code);
     });
     animeVideo.addEventListener("play", function () {
       if (mode === "iptv") animeVideo.pause();
