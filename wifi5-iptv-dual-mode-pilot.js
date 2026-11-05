@@ -97,7 +97,7 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
 
 
 
-/* AllanPisoWiFi Dual-Mode v3.3 — 8 unique customer-verified working IPTV feeds; no duplicates.
+/* AllanPisoWiFi Dual-Mode v3.4 — 8 verified IPTV feeds, arrow navigation only (no dropdown).
    Pilot only; restores independently from GitHub backup.
 */
 (function () {
@@ -105,7 +105,7 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
   var channels = [{"name":"Abante TV","url":"https://amg19223-amg19223c12-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c12-amgplt0352/playlist.m3u8"},{"name":"Bilyonaryo News","url":"https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8"},{"name":"Hope Channel Philippines","url":"https://jstre.am/live/jsl:nX5eC7gQvZb.m3u8"},{"name":"INC TV","url":"https://stream-243529.castr.net/6842a712b68c56f675d988f1/live_f5ac22b0566511f0805217b960326aaa/rewind-1800.m3u8"},{"name":"Kartoon Channel!","url":"https://hlspackager.akamaized.net/live/DB/KARTOON_CHANNEL/HLS/KARTOON_CHANNEL.m3u8","alternates":["https://jmp2.uk/plu-60fb040d4795a6000762fe8f.m3u8"]},{"name":"HappyKids","url":"https://mumbai-edge.smartplaytv.in/HappyKids/index.m3u8"},{"name":"ABC News Live","url":"https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master.m3u8","alternates":["https://aegis-cloudfront-1.tubi.video/d6cbb0de-68e4-4f3b-82f9-bf5d526e0bde/index.m3u8"]},{"name":"CBS News 24/7","url":"https://cbsn-us.cbsnstream.cbsnews.com/out/v1/55a8648e8f134e82a470f83d562deeca/master.m3u8","alternates":["https://cbsnews.akamaized.net/hls/live/2020607/cbsnlineup_8/master.m3u8"]}];
   var mode = "anime", channelIndex = 0, activeHls = null, animeVideo = null;
   var tvVideo = null, scope = null, bar = null, modeAnimeBtn = null, modeIPTVBtn = null;
-  var title = null, details = null, counter = null, channelSelect = null, legacyTitle = null;
+  var title = null, details = null, counter = null, legacyTitle = null;
   var loaded = false, mediaClearing = false, lastHlsError = "", requestGeneration = 0;
   var sourceIndex = 0, failureTimer = null, alternateError = null;
   var animeCount = iptvlist.length, previousAnimeDisplay = "";
@@ -164,8 +164,6 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     counter.textContent = mode === "anime"
       ? "EP " + ((Number(animeVideo && animeVideo.__wifi5AnimeIndex) || 0) + 1) + "/" + animeCount
       : "CH " + (channelIndex + 1) + "/" + channels.length;
-    channelSelect.style.display = mode === "iptv" ? "block" : "none";
-    if (mode === "iptv") channelSelect.value = String(channelIndex);
     updateLegacyTitle();
   }
   function showError(message) {
@@ -346,16 +344,6 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     var next = button("Next ▶", function () { move(1); });
     counter = document.createElement("span");
     counter.style.cssText = "color:white;font-size:12px;min-width:55px;text-align:center;";
-    channelSelect = document.createElement("select");
-    channelSelect.style.cssText = "display:none;flex:1 1 100%;min-width:0;background:#243047;" +
-      "border:1px solid #6b788b;color:white;padding:10px;border-radius:7px;";
-    channels.forEach(function (channel, i) {
-      var option = document.createElement("option");
-      option.value = String(i);
-      option.textContent = (i + 1) + ". " + channel.name;
-      channelSelect.appendChild(option);
-    });
-    channelSelect.addEventListener("change", function () { playChannel(Number(channelSelect.value)); });
     details = document.createElement("div");
     details.style.cssText = "display:none;flex:1 1 100%;padding:8px 10px;color:#ffc4c4;" +
       "border:1px solid #a34a4a;border-radius:6px;font-size:12px;overflow-wrap:anywhere;";
@@ -369,7 +357,6 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     bar.appendChild(modeAnimeBtn);
     bar.appendChild(modeIPTVBtn);
     bar.appendChild(title);
-    bar.appendChild(channelSelect);
     bar.appendChild(nav);
     bar.appendChild(details);
     tvVideo = document.createElement("video");
