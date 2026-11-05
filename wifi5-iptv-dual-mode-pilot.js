@@ -146,13 +146,22 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     }
     return null;
   }
-  function updateLegacyTitle() {
+  function hideLegacyTitle() {
     var node = findLegacyTitle();
-    if (!node) return;
-    var target = mode === "anime"
-      ? iptvlist[(Number(animeVideo && animeVideo.__wifi5AnimeIndex) || 0) % animeCount].name
-      : channels[channelIndex].name;
-    if (node.nodeValue.trim() !== target) node.nodeValue = target;
+    if (!node || !node.parentElement) return;
+    var element = node.parentElement;
+    var originalText = (node.nodeValue || "").trim();
+
+    // Remove the duplicate upper heading (including its text-only wrapper's
+    // spacing), but never hide the video, controls or dual-mode switcher.
+    while (element.parentElement && element.parentElement !== document.body) {
+      var wrapper = element.parentElement;
+      if (wrapper.contains(bar) || wrapper.contains(animeVideo) ||
+          (tvVideo && wrapper.contains(tvVideo))) break;
+      if (wrapper.textContent.trim() !== originalText) break;
+      element = wrapper;
+    }
+    element.style.setProperty("display", "none", "important");
   }
   function render() {
     if (!loaded) return;
@@ -164,7 +173,7 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     counter.textContent = mode === "anime"
       ? "EP " + ((Number(animeVideo && animeVideo.__wifi5AnimeIndex) || 0) + 1) + "/" + animeCount
       : "CH " + (channelIndex + 1) + "/" + channels.length;
-    updateLegacyTitle();
+    hideLegacyTitle();
   }
   function showError(message) {
     if (!details) return;
