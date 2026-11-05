@@ -190,8 +190,20 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
     }
     element.style.setProperty("display", "none", "important");
   }
+  function expandAnimeVideo() {
+    if (!animeVideo) return;
+    // Fill the available local-player width like IPTV, but retain the MP4's
+    // native aspect ratio (older 4:3 episodes should not be stretched/cropped).
+    animeVideo.style.setProperty("width", "100%", "important");
+    animeVideo.style.setProperty("max-width", "100%", "important");
+    animeVideo.style.setProperty("height", "auto", "important");
+    animeVideo.style.setProperty("aspect-ratio", "auto", "important");
+    animeVideo.style.setProperty("object-fit", "contain", "important");
+    animeVideo.style.setProperty("box-sizing", "border-box", "important");
+  }
   function render() {
     if (!loaded) return;
+    expandAnimeVideo();
     modeAnimeBtn.style.background = mode === "anime" ? "#087d69" : "#252f41";
     modeIPTVBtn.style.background = mode === "iptv" ? "#087d69" : "#252f41";
     modeAnimeBtn.setAttribute("aria-pressed", String(mode === "anime"));
