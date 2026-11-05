@@ -97,175 +97,305 @@ function _0x50a0(_0x5c7db3,_0xd1c121){var _0x4d4545=_0x4997();return _0x50a0=fun
 
 
 
-/* ============================================================
-   AllanPisoWiFi DUO PILOT — Anime TV / 10 focused IPTV channels
-   This is a separate *test* build. The existing 10-episode Anime TV and the separate original 75-channel IPTV backup remain untouched.
-   ============================================================ */
+/* AllanPisoWiFi Dual-Mode v2 — focused IPTV + local Anime TV, title and navigation fix.
+   Pilot only; restores independently from GitHub backup.
+*/
 (function () {
-  'use strict';
+  "use strict";
   var channels = [{"name":"Abante TV","url":"https://amg19223-amg19223c12-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c12-amgplt0352/playlist.m3u8"},{"name":"Bilyonaryo News","url":"https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8"},{"name":"Hope Channel Philippines","url":"https://jstre.am/live/jsl:nX5eC7gQvZb.m3u8"},{"name":"INC TV","url":"https://stream-243529.castr.net/6842a712b68c56f675d988f1/live_f5ac22b0566511f0805217b960326aaa/rewind-1800.m3u8"},{"name":"PBS Kids","url":"https://livestream.pbskids.org/out/v1/14507d931bbe48a69287e4850e53443c/est.m3u8"},{"name":"ABC Kids","url":"https://c.mjh.nz/abc-kids.m3u8"},{"name":"ABC Me","url":"https://c.mjh.nz/abc-me.m3u8"},{"name":"MBC 3","url":"https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-3-usa/5d58265a862a476dc7f97694addb5ded/index.m3u8"},{"name":"NBC News NOW","url":"https://d1si3n1st4nkgb.cloudfront.net/10502/88896001/hls/master.m3u8?ads.xumo_channelId=88896001"},{"name":"CBS News","url":"https://dai.google.com/linear/hls/event/Sid4xiTQTkCT1SLu6rjUSQ/master.m3u8"}];
-  var currentMode = 'anime', channelIndex = 0, iptvHls = null, originalVideo = null;
-  var iptvVideo = null, status = null, animeButton = null, iptvButton = null;
-  var number = null, switching = false, ready = false;
-  var animeCount = iptvlist.length;
+  var mode = "anime", channelIndex = 0, activeHls = null, animeVideo = null;
+  var tvVideo = null, scope = null, bar = null, modeAnimeBtn = null, modeIPTVBtn = null;
+  var title = null, details = null, counter = null, channelSelect = null, legacyTitle = null;
+  var loaded = false, mediaClearing = false, lastHlsError = "", requestGeneration = 0;
+  var animeCount = iptvlist.length, previousAnimeDisplay = "";
+
   function safePlay(video) {
-    try { var p = video.play(); if (p && p.catch) p.catch(function () {}); } catch (_) {}
+    if (!video) return;
+    try {
+      var promise = video.play();
+      if (promise && typeof promise.catch === "function") promise.catch(function () {});
+    } catch (error) {}
   }
-  function locateVideo() {
-    var videos = Array.prototype.slice.call(document.querySelectorAll('video'));
-    return videos.find(function (v) {
-      return /\/sda2\/[^/]+\/video\.mp4/.test(v.currentSrc || '') ||
-             /\/sda2\/[^/]+\/video\.mp4/.test(v.getAttribute('src') || '');
-    }) || null;
-  }
-  function statusText(message) {
-    if (status) status.textContent = message;
-  }
-  function destroyHLS() {
-    if (iptvHls) { try { iptvHls.destroy(); } catch (_) {} iptvHls = null; }
-    if (iptvVideo) {
-      try { iptvVideo.pause(); iptvVideo.removeAttribute('src'); iptvVideo.load(); } catch (_) {}
+  function findAnimeVideo() {
+    var videos = document.querySelectorAll("video");
+    for (var i = 0; i < videos.length; i++) {
+      var v = videos[i];
+      if (/\/sda2\/[^/]+\/video\.mp4/i.test(v.currentSrc || "") ||
+          /\/sda2\/[^/]+\/video\.mp4/i.test(v.getAttribute("src") || "")) return v;
     }
+    return null;
   }
-  function updateButtons() {
-    if (!iptvButton || !animeButton) return;
-    animeButton.style.background = currentMode === 'anime' ? '#147d64' : '#263144';
-    iptvButton.style.background = currentMode === 'iptv' ? '#147d64' : '#263144';
-    animeButton.setAttribute('aria-pressed', String(currentMode === 'anime'));
-    iptvButton.setAttribute('aria-pressed', String(currentMode === 'iptv'));
-    if (number) number.textContent = currentMode === 'anime'
-      ? 'Anime ' + ((originalVideo && originalVideo.__wifi5AnimeIndex || 0) + 1) + '/' + animeCount
-      : 'IPTV ' + (channelIndex + 1) + '/' + channels.length;
+  function activeName() {
+    return mode === "anime"
+      ? "ANIME TV — EP " + String((Number(animeVideo && animeVideo.__wifi5AnimeIndex) || 0) + 1).padStart(2, "0")
+      : channels[channelIndex].name;
+  }
+  function findLegacyTitle() {
+    if (legacyTitle && legacyTitle.isConnected) return legacyTitle;
+    var walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+    var node;
+    while ((node = walk.nextNode())) {
+      var parent = node.parentElement;
+      if (!parent || parent.closest("script,style,#wifi5-duo-switcher")) continue;
+      if (node.nodeValue.length > 110) continue;
+      if (/ANIME TV\s*-\s*EP\s*\d{1,2}/i.test(node.nodeValue)) {
+        legacyTitle = node;
+        return node;
+      }
+    }
+    return null;
+  }
+  function updateLegacyTitle() {
+    var node = findLegacyTitle();
+    if (!node) return;
+    var target = mode === "anime"
+      ? iptvlist[(Number(animeVideo && animeVideo.__wifi5AnimeIndex) || 0) % animeCount].name
+      : channels[channelIndex].name;
+    if (node.nodeValue.trim() !== target) node.nodeValue = target;
+  }
+  function render() {
+    if (!loaded) return;
+    modeAnimeBtn.style.background = mode === "anime" ? "#087d69" : "#252f41";
+    modeIPTVBtn.style.background = mode === "iptv" ? "#087d69" : "#252f41";
+    modeAnimeBtn.setAttribute("aria-pressed", String(mode === "anime"));
+    modeIPTVBtn.setAttribute("aria-pressed", String(mode === "iptv"));
+    title.textContent = mode === "anime" ? "LOCAL ANIME TV — " + activeName() : "LIVE IPTV — " + activeName();
+    counter.textContent = mode === "anime"
+      ? "EP " + ((Number(animeVideo && animeVideo.__wifi5AnimeIndex) || 0) + 1) + "/" + animeCount
+      : "CH " + (channelIndex + 1) + "/" + channels.length;
+    channelSelect.style.display = mode === "iptv" ? "block" : "none";
+    if (mode === "iptv") channelSelect.value = String(channelIndex);
+    updateLegacyTitle();
+  }
+  function showError(message) {
+    if (!details) return;
+    details.textContent = message || "";
+    details.style.display = message ? "block" : "none";
+  }
+  function destroyIPTV() {
+    requestGeneration++;
+    mediaClearing = true;
+    if (activeHls) {
+      try { activeHls.destroy(); } catch (error) {}
+      activeHls = null;
+    }
+    if (tvVideo) {
+      try { tvVideo.pause(); tvVideo.removeAttribute("src"); tvVideo.load(); } catch (error) {}
+    }
+    mediaClearing = false;
+  }
+  function errorDescription(err) {
+    if (!err) return "Unknown HLS error";
+    var code = err.response && (err.response.code || err.response.status);
+    var response = code ? " | HTTP " + code : "";
+    var reason = err.reason ? " | " + String(err.reason).slice(0, 85) : "";
+    return String(err.type || "error") + " / " + String(err.details || "unknown") + response + reason;
   }
   function playChannel(index) {
-    if (!iptvVideo || currentMode !== 'iptv') return;
+    if (!tvVideo || mode !== "iptv") return;
     channelIndex = (index + channels.length) % channels.length;
-    var c = channels[channelIndex];
-    destroyHLS();
-    statusText('IPTV: ' + c.name);
-    updateButtons();
-    // On mobile Safari, prefer native HLS. Otherwise use bundled Hls.js.
-    if (iptvVideo.canPlayType('application/vnd.apple.mpegurl') ||
-        iptvVideo.canPlayType('application/x-mpegURL')) {
-      iptvVideo.src = c.url;
-      iptvVideo.load();
-      safePlay(iptvVideo);
-    } else if (typeof Hls !== 'undefined' && Hls.isMSESupported && Hls.isMSESupported()) {
-      iptvHls = new Hls({enableWorker:true});
-      // Allow the existing native-MP4 shim to delegate to real Hls.js.
-      iptvHls.__wifi5AnimeURL = c.url;
-      iptvHls.on(Hls.Events.ERROR, function (_, err) {
-        if (err && err.fatal) statusText('IPTV error: ' + c.name + ' (try Next)');
+    destroyIPTV();
+    lastHlsError = "";
+    showError("");
+    render();
+    var channel = channels[channelIndex];
+    var gen = requestGeneration;
+    tvVideo.muted = true;
+    tvVideo.setAttribute("muted", "");
+
+    // Native HLS in Safari/iOS, Hls.js where MediaSource is supported.
+    if (tvVideo.canPlayType("application/vnd.apple.mpegurl") ||
+        tvVideo.canPlayType("application/x-mpegURL")) {
+      tvVideo.src = channel.url;
+      tvVideo.load();
+      safePlay(tvVideo);
+    } else if (typeof Hls !== "undefined" && Hls.isMSESupported && Hls.isMSESupported()) {
+      var hls = new Hls({enableWorker:true});
+      activeHls = hls;
+      // The Anime MP4 compatibility shim delegates these HLS URLs to genuine Hls.js.
+      hls.__wifi5AnimeURL = channel.url;
+      hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+        if (gen === requestGeneration && mode === "iptv") hls.loadSource(channel.url);
       });
-      iptvHls.loadSource(c.url);
-      iptvHls.attachMedia(iptvVideo);
-      iptvVideo.addEventListener('canplay', onIPTVCanPlay, {once:true});
+      hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        if (gen === requestGeneration && mode === "iptv") safePlay(tvVideo);
+      });
+      hls.on(Hls.Events.ERROR, function (eventName, err) {
+        if (gen !== requestGeneration || mode !== "iptv" || !err || !err.fatal) return;
+        lastHlsError = errorDescription(err);
+        showError("IPTV " + channel.name + ": " + lastHlsError +
+          " — VLC playback does not guarantee browser support.");
+      });
+      hls.attachMedia(tvVideo);
     } else {
-      statusText('This browser does not support HLS playback.');
+      showError("No native HLS or MediaSource support in this browser.");
     }
   }
-  function onIPTVCanPlay() { if (currentMode === 'iptv') safePlay(iptvVideo); }
-  function chooseMode(mode) {
-    if (!ready || switching || !originalVideo || !iptvVideo) return;
-    if (mode === currentMode) return;
-    switching = true;
-    try {
-      if (mode === 'iptv') {
-        originalVideo.pause();
-        originalVideo.style.display = 'none';
-        iptvVideo.style.display = 'block';
-        currentMode = 'iptv';
-        playChannel(channelIndex);
-      } else {
-        destroyHLS();
-        iptvVideo.style.display = 'none';
-        originalVideo.style.display = '';
-        currentMode = 'anime';
-        statusText('Local Anime TV — autoplay / episode loop');
-        safePlay(originalVideo);
-      }
-      updateButtons();
-    } finally { switching = false; }
+  function selectMode(nextMode) {
+    if (!loaded || !animeVideo || !tvVideo || nextMode === mode) return;
+    if (nextMode === "iptv") {
+      animeVideo.pause();
+      animeVideo.style.display = "none";
+      tvVideo.style.display = "block";
+      mode = "iptv";
+      playChannel(channelIndex);
+    } else {
+      destroyIPTV();
+      tvVideo.style.display = "none";
+      animeVideo.style.display = previousAnimeDisplay;
+      mode = "anime";
+      showError("");
+      render();
+      safePlay(animeVideo);
+    }
+    render();
   }
-  function shift(delta) {
-    if (currentMode === 'iptv') return playChannel(channelIndex + delta);
-    if (!originalVideo) return;
-    var at = (Number(originalVideo.__wifi5AnimeIndex) || 0);
-    var next = (at + delta + iptvlist.length) % iptvlist.length;
+  function move(delta) {
+    if (mode === "iptv") return playChannel(channelIndex + delta);
+    if (!animeVideo) return;
+    var at = (Number(animeVideo.__wifi5AnimeIndex) || 0);
+    var next = (at + delta + animeCount) % animeCount;
     selected = next;
-    originalVideo.__wifi5AnimeIndex = next;
-    originalVideo.src = iptvlist[next].url;
-    originalVideo.load();
-    safePlay(originalVideo);
-    statusText('Local Anime TV — EP ' + (next + 1));
-    updateButtons();
+    animeVideo.__wifi5AnimeIndex = next;
+    animeVideo.src = iptvlist[next].url;
+    animeVideo.load();
+    safePlay(animeVideo);
+    render();
   }
-  function makeButton(label, aria, handler) {
-    var el = document.createElement('button');
-    el.type = 'button';
+  function button(label, handler) {
+    var el = document.createElement("button");
+    el.type = "button";
     el.textContent = label;
-    el.setAttribute('aria-label', aria);
-    el.style.cssText = 'border:1px solid #5f748b;color:#fff;background:#263144;border-radius:7px;' +
-      'padding:9px 12px;min-height:38px;font-size:13px;font-weight:600;cursor:pointer;';
-    el.addEventListener('click', handler);
+    el.style.cssText = "color:white;background:#252f41;border:1px solid #6b788b;" +
+      "border-radius:7px;padding:9px 10px;font-size:13px;font-weight:600;cursor:pointer;min-height:40px;";
+    el.addEventListener("click", handler);
     return el;
   }
+  function nativeArrowDirection(target) {
+    var node = target;
+    var iterations = 0;
+    while (node && node.nodeType === 1 && iterations++ < 3) {
+      var a = (node.getAttribute("aria-label") || "") + " " +
+        (node.getAttribute("title") || "") + " " +
+        (typeof node.className === "string" ? node.className : "") + " " +
+        (node.id || "") + " " + (node.textContent || "").slice(0, 18);
+      if (/\b(next|right|forward)\b|chevron-right|angle-right|caret-right|arrow-right|skip-forward|▶|❯|❱|›|→/i.test(a)) return 1;
+      if (/\b(prev|previous|left|backward)\b|chevron-left|angle-left|caret-left|arrow-left|skip-back|◀|❮|❰|‹|←/i.test(a)) return -1;
+      node = node.parentElement;
+    }
+    return 0;
+  }
+  function captureLegacyArrows(event) {
+    if (!loaded || mode !== "iptv" || !scope || !animeVideo) return;
+    var clicked = event.target;
+    if (!clicked || clicked.nodeType !== 1 || (bar && bar.contains(clicked))) return;
+    if (!scope.contains(clicked) || clicked === animeVideo || clicked === tvVideo) return;
+    var direction = nativeArrowDirection(clicked);
+    if (!direction) return;
+    var nativeButton = clicked.closest("button,a,[role=button],[onclick]");
+    if (!nativeButton || bar.contains(nativeButton)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    move(direction);
+  }
   function install() {
-    if (ready) return true;
-    var v = locateVideo();
-    if (!v || !v.parentElement) return false;
-    if (document.getElementById('wifi5-duo-switcher')) return true;
-    originalVideo = v;
-    var parent = v.parentElement;
-    var bar = document.createElement('div');
-    bar.id = 'wifi5-duo-switcher';
-    bar.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 3px;' +
-      'width:100%;box-sizing:border-box;position:relative;z-index:5;';
-    animeButton = makeButton('🎬 Local Anime TV', 'Show local Anime TV', function () { chooseMode('anime'); });
-    iptvButton = makeButton('📺 IPTV', 'Show IPTV channels', function () { chooseMode('iptv'); });
-    var prev = makeButton('◀', 'Previous episode or IPTV channel', function () { shift(-1); });
-    var next = makeButton('▶', 'Next episode or IPTV channel', function () { shift(1); });
-    number = document.createElement('span');
-    number.style.cssText = 'color:#dedede;font-size:12px;padding:0 3px;';
-    status = document.createElement('div');
-    status.style.cssText = 'font-size:12px;color:#d0d7e0;width:100%;margin-top:1px;';
-    animeButton.style.background = '#147d64';
-    bar.appendChild(animeButton);
-    bar.appendChild(iptvButton);
-    bar.appendChild(prev);
-    bar.appendChild(next);
-    bar.appendChild(number);
-    bar.appendChild(status);
-    var newVideo = document.createElement('video');
-    newVideo.id = 'wifi5-duo-iptv-video';
-    newVideo.setAttribute('playsinline', '');
-    newVideo.setAttribute('webkit-playsinline', '');
-    newVideo.autoplay = true; newVideo.muted = true; newVideo.controls = true;
-    newVideo.preload = 'metadata';
-    newVideo.style.cssText = 'display:none;width:100%;max-width:100%;height:auto;background:#000;' +
-      'aspect-ratio:16/9;object-fit:contain;';
-    newVideo.addEventListener('error', function () {
-      if (currentMode === 'iptv') statusText('IPTV playback error; choose another channel.');
+    if (loaded) return true;
+    var video = findAnimeVideo();
+    if (!video || !video.parentElement) return false;
+    if (document.getElementById("wifi5-duo-switcher")) return true;
+    animeVideo = video;
+    previousAnimeDisplay = video.style.display || "";
+    scope = video.parentElement;
+    for (var i = 0; i < 3 && scope.parentElement && scope.parentElement !== document.body; i++) {
+      scope = scope.parentElement;
+    }
+    var parent = video.parentElement;
+    bar = document.createElement("div");
+    bar.id = "wifi5-duo-switcher";
+    bar.style.cssText = "display:flex;flex-wrap:wrap;align-items:center;gap:7px;" +
+      "padding:8px 4px;width:100%;box-sizing:border-box;position:relative;z-index:5;";
+    modeAnimeBtn = button("🎬 LOCAL ANIME TV", function () { selectMode("anime"); });
+    modeIPTVBtn = button("📺 IPTV", function () { selectMode("iptv"); });
+    modeAnimeBtn.style.flex = "1 1 45%";
+    modeIPTVBtn.style.flex = "1 1 40%";
+    title = document.createElement("div");
+    title.style.cssText = "width:100%;font-weight:750;font-size:15px;color:white;" +
+      "background:#162334;border-radius:7px;padding:9px;box-sizing:border-box;";
+    var prev = button("◀ Previous", function () { move(-1); });
+    var next = button("Next ▶", function () { move(1); });
+    counter = document.createElement("span");
+    counter.style.cssText = "color:white;font-size:12px;min-width:55px;text-align:center;";
+    channelSelect = document.createElement("select");
+    channelSelect.style.cssText = "display:none;flex:1 1 100%;min-width:0;background:#243047;" +
+      "border:1px solid #6b788b;color:white;padding:10px;border-radius:7px;";
+    channels.forEach(function (channel, i) {
+      var option = document.createElement("option");
+      option.value = String(i);
+      option.textContent = (i + 1) + ". " + channel.name;
+      channelSelect.appendChild(option);
     });
-    iptvVideo = newVideo;
-    parent.insertBefore(bar, v);
-    if (v.nextSibling) parent.insertBefore(newVideo, v.nextSibling);
-    else parent.appendChild(newVideo);
-    ready = true;
-    statusText('Local Anime TV — 10 episodes, automatic loop');
-    updateButtons();
+    channelSelect.addEventListener("change", function () { playChannel(Number(channelSelect.value)); });
+    details = document.createElement("div");
+    details.style.cssText = "display:none;flex:1 1 100%;padding:8px 10px;color:#ffc4c4;" +
+      "border:1px solid #a34a4a;border-radius:6px;font-size:12px;overflow-wrap:anywhere;";
+    var nav = document.createElement("div");
+    nav.style.cssText = "display:flex;gap:6px;align-items:center;flex:1 1 100%;";
+    prev.style.flex = "1";
+    next.style.flex = "1";
+    nav.appendChild(prev);
+    nav.appendChild(counter);
+    nav.appendChild(next);
+    bar.appendChild(modeAnimeBtn);
+    bar.appendChild(modeIPTVBtn);
+    bar.appendChild(title);
+    bar.appendChild(channelSelect);
+    bar.appendChild(nav);
+    bar.appendChild(details);
+    tvVideo = document.createElement("video");
+    tvVideo.id = "wifi5-duo-iptv-video";
+    tvVideo.setAttribute("playsinline", "");
+    tvVideo.setAttribute("webkit-playsinline", "");
+    tvVideo.autoplay = true;
+    tvVideo.muted = true;
+    tvVideo.controls = true;
+    tvVideo.preload = "metadata";
+    tvVideo.style.cssText = "display:none;width:100%;height:auto;max-width:100%;" +
+      "background:black;aspect-ratio:16/9;object-fit:contain;";
+    tvVideo.addEventListener("canplay", function () {
+      if (mode === "iptv") safePlay(tvVideo);
+    });
+    tvVideo.addEventListener("error", function () {
+      if (mode !== "iptv" || mediaClearing || lastHlsError || !tvVideo.getAttribute("src")) return;
+      var code = tvVideo.error ? tvVideo.error.code : "unknown";
+      showError("Browser media error " + code + " on " + channels[channelIndex].name +
+        ". Try another IPTV channel.");
+    });
+    animeVideo.addEventListener("play", function () {
+      if (mode === "iptv") animeVideo.pause();
+    });
+    animeVideo.addEventListener("loadedmetadata", function () {
+      if (mode === "anime") render();
+    });
+    document.addEventListener("click", captureLegacyArrows, true);
+    parent.insertBefore(bar, video);
+    if (video.nextSibling) parent.insertBefore(tvVideo, video.nextSibling);
+    else parent.appendChild(tvVideo);
+    loaded = true;
+    render();
     return true;
   }
   if (!install()) {
-    var ticks = 0;
+    var attempts = 0;
     var observer = new MutationObserver(function () {
       if (install()) observer.disconnect();
     });
-    observer.observe(document.documentElement, {subtree:true,childList:true,attributes:true,attributeFilter:['src']});
-    var poll = setInterval(function () {
-      ticks++;
-      if (install() || ticks >= 80) {
-        clearInterval(poll); observer.disconnect();
+    observer.observe(document.documentElement, {
+      subtree: true, childList: true, attributes: true, attributeFilter: ["src"]
+    });
+    var timer = setInterval(function () {
+      if (install() || ++attempts >= 80) {
+        clearInterval(timer);
+        observer.disconnect();
       }
     }, 500);
   }
